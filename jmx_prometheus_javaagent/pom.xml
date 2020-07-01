@@ -61,7 +61,7 @@
                 <include>io.prometheus.**</include>
                 <include>javax.servlet.**</include>
                 <include>org.eclipse.**</include>
-                <include>org.yaml.**</include>
+                <include>org.fasterxml.**</include>
               </includes>
               <excludes>
                 <exclude>io.prometheus.jmx.shaded.**</exclude>
