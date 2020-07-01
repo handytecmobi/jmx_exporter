@@ -2,7 +2,13 @@ package io.prometheus.jmx;
 
 import io.prometheus.client.Collector;
 import io.prometheus.client.Counter;
-import org.yaml.snakeyaml.Yaml;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLParser.Feature;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
@@ -53,8 +59,6 @@ public class JmxCollector extends Collector implements Collector.Describable {
     private static class Config {
       Integer startDelaySeconds = 0;
       String jmxUrl = "";
-      String username = "";
-      String password = "";
       boolean ssl = false;
       boolean lowercaseOutputName;
       boolean lowercaseOutputLabelNames;
@@ -71,17 +75,48 @@ public class JmxCollector extends Collector implements Collector.Describable {
     private final JmxMBeanPropertyCache jmxMBeanPropertyCache = new JmxMBeanPropertyCache();
 
     public JmxCollector(File in) throws IOException, MalformedObjectNameException {
-        configFile = in;
-        config = loadConfig((Map<String, Object>)new Yaml().load(new FileReader(in)));
+        ObjectMapper mapper = new ObjectMapper(new YAMLFactory().disable(com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
+    	configFile = in;
+    	Map<String, Object> yamlConfig = (Map<String, Object>)mapper.readValue(in,Map.class);
+        config = loadConfig(yamlConfig);
         config.lastUpdate = configFile.lastModified();
     }
 
     public JmxCollector(String yamlConfig) throws MalformedObjectNameException {
-        config = loadConfig((Map<String, Object>)new Yaml().load(yamlConfig));
+    	ObjectMapper mapper = new ObjectMapper(new YAMLFactory().disable(com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
+    	try {
+    		Map<String, Object> yamlConfigYaml = (Map<String, Object>)mapper.readValue(yamlConfig, Map.class);
+			config = loadConfig(yamlConfigYaml);
+		} catch (JsonParseException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		} catch (JsonMappingException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		}
+    	
     }
 
     public JmxCollector(InputStream inputStream) throws MalformedObjectNameException {
-      config = loadConfig((Map<String, Object>)new Yaml().load(inputStream));
+    	ObjectMapper mapper = new ObjectMapper(new YAMLFactory().disable(com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
+    	try {
+			Map<String, Object> yamlConfigYaml = (Map<String, Object>)mapper.readValue(inputStream, Map.class);
+			config = loadConfig(yamlConfigYaml);
+		} catch (JsonParseException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		} catch (JsonMappingException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			LOGGER.severe(e.toString());
+		}
+    	
+    	
     }
 
     private void reloadConfig() {
@@ -89,7 +124,9 @@ public class JmxCollector extends Collector implements Collector.Describable {
         FileReader fr = new FileReader(configFile);
 
         try {
-          Map<String, Object> newYamlConfig = (Map<String, Object>)new Yaml().load(fr);
+          ObjectMapper mapper = new ObjectMapper(new YAMLFactory().disable(com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
+          mapper.readValue(fr, Map.class);
+          Map<String, Object> newYamlConfig = (Map<String, Object>)mapper;
           config = loadConfig(newYamlConfig);
           config.lastUpdate = configFile.lastModified();
           configReloadSuccess.inc();
@@ -127,14 +164,6 @@ public class JmxCollector extends Collector implements Collector.Describable {
           cfg.jmxUrl ="service:jmx:rmi:///jndi/rmi://" + (String)yamlConfig.get("hostPort") + "/jmxrmi";
         } else if (yamlConfig.containsKey("jmxUrl")) {
           cfg.jmxUrl = (String)yamlConfig.get("jmxUrl");
-        }
-
-        if (yamlConfig.containsKey("username")) {
-          cfg.username = (String)yamlConfig.get("username");
-        }
-
-        if (yamlConfig.containsKey("password")) {
-          cfg.password = (String)yamlConfig.get("password");
         }
 
         if (yamlConfig.containsKey("ssl")) {
@@ -461,7 +490,7 @@ public class JmxCollector extends Collector implements Collector.Describable {
       }
 
       Receiver receiver = new Receiver();
-      JmxScraper scraper = new JmxScraper(config.jmxUrl, config.username, config.password, config.ssl,
+      JmxScraper scraper = new JmxScraper(config.jmxUrl, config.ssl,
               config.whitelistObjectNames, config.blacklistObjectNames, receiver, jmxMBeanPropertyCache);
       long start = System.nanoTime();
       double error = 0;
@@ -474,7 +503,7 @@ public class JmxCollector extends Collector implements Collector.Describable {
       } catch (Exception e) {
         error = 1;
         StringWriter sw = new StringWriter();
-        e.printStackTrace(new PrintWriter(sw));
+        LOGGER.severe(new PrintWriter(sw).toString());
         LOGGER.severe("JMX scrape failed: " + sw.toString());
       }
       List<MetricFamilySamples> mfsList = new ArrayList<MetricFamilySamples>();
