@@ -10,7 +10,6 @@ public class WebServer {
 
    public static void main(String[] args) throws Exception {
      if (args.length < 2) {
-       System.err.println("Usage: WebServer <[hostname:]port> <yaml configuration file>");
        System.exit(1);
      }
 
