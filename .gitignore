@@ -10,3 +10,7 @@ target/
 .settings/
 .classpath
 dependency-reduced-pom.xml
+*.class
+collector/bin
+jmx_prometheus_httpserver/bin
+jmx_prometheus_javaagent/bin
